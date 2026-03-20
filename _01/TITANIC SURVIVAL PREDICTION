@@ -1,1 +1,118 @@
+Titanic Survival Prediction
+Binary Classification using Machine Learning (Logistic Regression & Random Forest)
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+
+
+df = pd.read_csv(r"E:\Tronixia Projects\ML\train.csv")
+df.head()
+
+
+df.info()
+df.isnull().sum()
+df.describe()
+
+
+sns.countplot(x="Survived", data=df)
+plt.show()
+
+
+sns.barplot(x="Sex", y="Survived", data=df)
+plt.show()
+
+
+sns.barplot(x="Pclass", y="Survived", data=df)
+plt.show()
+
+
+df = df.drop(["Name", "Ticket", "Cabin"], axis=1)
+
+age_imputer = SimpleImputer(strategy="median")
+embarked_imputer = SimpleImputer(strategy="most_frequent")
+df["Age"] = age_imputer.fit_transform(df[["Age"]])
+df["Embarked"] = embarked_imputer.fit_transform(df[["Embarked"]]).ravel()
+
+le = LabelEncoder()
+df["Sex"] = le.fit_transform(df["Sex"])
+df["Embarked"] = le.fit_transform(df["Embarked"])
+
+X = df.drop("Survived", axis=1)
+y = df["Survived"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+log_model = LogisticRegression()
+log_model.fit(X_train, y_train)
+log_pred = log_model.predict(X_test)
+print("Logistic Regression Accuracy:", accuracy_score(y_test, log_pred))
+
+
+rf_model = RandomForestClassifier(random_state=42)
+rf_model.fit(X_train, y_train)
+rf_pred = rf_model.predict(X_test)
+print("Random Forest Accuracy:", accuracy_score(y_test, rf_pred))
+
+
+best_pred = rf_model.predict(X_test)
+cm = confusion_matrix(y_test, best_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+disp.plot()
+plt.title("Confusion Matrix - Random Forest")
+plt.show()
+
+
+rf_prob = rf_model.predict_proba(X_test)[:, 1]
+fpr, tpr, _ = roc_curve(y_test, rf_prob)
+plt.plot(fpr, tpr)
+plt.title("ROC Curve - Random Forest")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.show()
+print("ROC-AUC Score:", roc_auc_score(y_test, rf_prob))
+
+
+cv_scores = cross_val_score(rf_model, X, y, cv=5)
+print("Cross Validation Accuracy:", cv_scores.mean())
+
+
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "Random Forest": RandomForestClassifier(),
+}
+results = []
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    acc = accuracy_score(y_test, pred)
+    results.append([name, acc])
+results_df = pd.DataFrame(results, columns=["Model", "Accuracy"])
+results_df.sort_values(by="Accuracy", ascending=False)
+
+
+importances = rf_model.feature_importances_
+features = X.columns
+feat_df = pd.DataFrame({
+    "Feature": features,
+    "Importance": importances
+}).sort_values(by="Importance")
+plt.figure(figsize=(8,5))
+plt.barh(feat_df["Feature"], feat_df["Importance"])
+plt.title("Feature Importance - Random Forest")
+plt.show()
+
+
 
